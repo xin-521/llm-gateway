@@ -8,6 +8,7 @@
   - `GET  /api/v1/models` — 模型列表
 - 控制面（会话令牌保护，仅控制台使用）
   - `POST /api/admin/login`、`GET /api/admin/me`、`POST /api/admin/change-password`
+  - `GET /api/admin/status`、`POST /api/admin/setup`（首次初始化管理员）
   - `CRUD /api/admin/providers[/:id]`
   - `CRUD /api/admin/keys[/:id]`、`POST /api/admin/keys/:id/rotate`
   - `GET/PUT /api/admin/policies`、`GET/DELETE /api/admin/logs`
@@ -44,7 +45,7 @@ npx esa dev -p 18080   # 终端 A：启动边缘函数（含 mock KV）
 npm run dev            # 终端 B：Vite dev server，/api 代理到 18080
 ```
 
-打开 http://localhost:5173 ，演示账号 `admin` / `admin123`。
+打开 http://localhost:5173 ，首次访问会进入**初始化管理员**流程：设置你自己的用户名与密码即可进入控制台（不再内置 admin/admin123）。
 
 ## 质量校验
 
@@ -63,7 +64,7 @@ esa-cli login
 esa-cli deploy        # 使用 esa.jsonc 的 entry 与 dist 静态资源
 ```
 
-`esa.jsonc` 已配置 `functions/index.ts` 为入口、`dist` 为静态资源目录、SPA 404 回退。`kv.json` 为首次部署时可导入的 KV 初始数据。
+`esa.jsonc` 已配置 `functions/index.ts` 为入口、`dist` 为静态资源目录、SPA 404 回退。`kv.json` 为首次部署时可导入的 KV 初始数据（默认只带一个网关密钥，管理员账号由首次初始化创建）。
 
 ## 安全说明
 

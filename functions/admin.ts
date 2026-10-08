@@ -55,14 +55,7 @@ export async function handleLogin(request: Request): Promise<Response> {
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");
   const users = await getUsers();
-  let user = users.find((u) => u.username === username);
-  if (!user && users.length === 0) {
-    // Bootstrap admin on a completely empty KV store, and persist it so that
-    // subsequent token verification (requireAdmin -> getUsers) can find it.
-    const { SEED_USERS } = await import("./seed");
-    user = SEED_USERS.find((u) => u.username === username);
-    if (user) await saveUsers(SEED_USERS);
-  }
+  const user = users.find((u) => u.username === username);
   if (!user || !password) return err("Invalid username or password", 401);
   const hash = await pbkdf2Hex(password, user.salt);
   if (!safeEqual(hash, user.hash)) return err("Invalid username or password", 401);
@@ -73,6 +66,52 @@ export async function handleLogin(request: Request): Promise<Response> {
     exp: Date.now() + SESSION_TTL_MS,
   });
   return json({ token, user: { username: user.username, name: user.name, role: user.role } });
+}
+
+/**
+ * Public bootstrap probe. The console shows a "create the first admin" form
+ * while the KV store has no users yet.
+ */
+export async function handleStatus(): Promise<Response> {
+  const users = await getUsers();
+  return json({ initialized: users.length > 0 });
+}
+
+/**
+ * First-run initialization: create the owner account from user input. Only
+ * allowed while no user exists; returns a session token so the caller lands
+ * directly in the console.
+ */
+export async function handleSetup(request: Request): Promise<Response> {
+  const users = await getUsers();
+  if (users.length > 0) return err("Already initialized", 409);
+  let body: { username?: string; password?: string; name?: string };
+  try {
+    body = await request.json();
+  } catch {
+    return err("Invalid JSON");
+  }
+  const username = String(body.username ?? "").trim();
+  const password = String(body.password ?? "");
+  const name = String(body.name ?? "").trim() || username;
+  if (!/^[\w.-]{3,32}$/.test(username)) {
+    return err("用户名需为 3-32 位字母、数字或 . _ -");
+  }
+  if (password.length < 8) return err("密码至少 8 位");
+  const salt = randomHex(16);
+  const hash = await pbkdf2Hex(password, salt);
+  const user: AdminUser = { username, name, role: "owner", salt, hash };
+  await saveUsers([user]);
+  const secret = await getSecret();
+  const token = await signToken(secret, {
+    sub: user.username,
+    role: user.role,
+    exp: Date.now() + SESSION_TTL_MS,
+  });
+  return json(
+    { token, user: { username: user.username, name: user.name, role: user.role } },
+    201
+  );
 }
 
 export async function handleMe(request: Request): Promise<Response> {

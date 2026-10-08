@@ -10,6 +10,8 @@ import {
   handleResetHealth,
   handleRotateKey,
   handleStats,
+  handleStatus,
+  handleSetup,
   handleTest,
 } from "./admin";
 import { handleChat } from "./gateway";
@@ -24,6 +26,7 @@ import { handleChat } from "./gateway";
  *
  * Console control plane (session token protected):
  *   POST /api/admin/login | GET /api/admin/me | POST /api/admin/change-password
+ *   GET  /api/admin/status | POST /api/admin/setup   (first-run bootstrap)
  *   CRUD /api/admin/providers[/id]
  *   CRUD /api/admin/keys[/id] | POST /api/admin/keys/:id/rotate
  *   GET/PUT /api/admin/policies
@@ -81,6 +84,12 @@ export default {
     /* ---------------- console control plane ---------------- */
     if (path === "/admin/login" && method === "POST") {
       return handleLogin(request);
+    }
+    if (path === "/admin/status" && method === "GET") {
+      return handleStatus();
+    }
+    if (path === "/admin/setup" && method === "POST") {
+      return handleSetup(request);
     }
     if (path === "/admin/me" && method === "GET") {
       return handleMe(request);

@@ -47,7 +47,7 @@ export default function ConsoleLayout() {
   return (
     <SidebarProvider className="min-h-screen">
       <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-        <SidebarHeader className="h-14 flex items-center gap-2.5 px-3">
+        <SidebarHeader className="h-14 flex flex-row items-center gap-2.5 px-3">
           <div className="size-8 rounded-lg bg-primary grid place-items-center shrink-0">
             <Zap className="size-4 text-primary-foreground" />
           </div>
