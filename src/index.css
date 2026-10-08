@@ -1,0 +1,133 @@
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Design system tokens — "Ink Console" dark ops theme for the LLM Gateway.
+  Deep ink-blue panels, copper accent, signal colors for health states.
+*/
+
+@theme inline {
+  --font-sans: "Space Grotesk", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-background: hsl(224 30% 6%);
+  --color-foreground: hsl(210 25% 92%);
+
+  --color-card: hsl(223 24% 9%);
+  --color-card-foreground: hsl(210 25% 92%);
+
+  --color-popover: hsl(223 24% 11%);
+  --color-popover-foreground: hsl(210 25% 92%);
+
+  --color-primary: hsl(32 92% 54%);
+  --color-primary-foreground: hsl(28 40% 10%);
+
+  --color-secondary: hsl(222 20% 16%);
+  --color-secondary-foreground: hsl(210 25% 90%);
+
+  --color-muted: hsl(222 20% 14%);
+  --color-muted-foreground: hsl(216 15% 62%);
+
+  --color-accent: hsl(222 22% 17%);
+  --color-accent-foreground: hsl(210 25% 92%);
+
+  --color-destructive: hsl(2 76% 56%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+
+  --color-border: hsl(222 18% 19%);
+  --color-input: hsl(222 18% 21%);
+  --color-ring: hsl(32 92% 54%);
+
+  --color-success: hsl(152 62% 45%);
+  --color-warning: hsl(45 92% 58%);
+
+  --color-sidebar: hsl(224 28% 8%);
+  --color-sidebar-foreground: hsl(210 20% 82%);
+  --color-sidebar-primary: hsl(32 92% 54%);
+  --color-sidebar-primary-foreground: hsl(28 40% 10%);
+  --color-sidebar-accent: hsl(222 22% 14%);
+  --color-sidebar-accent-foreground: hsl(210 25% 92%);
+  --color-sidebar-border: hsl(222 18% 15%);
+  --color-sidebar-ring: hsl(32 92% 54%);
+
+  --color-chart-1: hsl(32 92% 58%);
+  --color-chart-2: hsl(152 62% 48%);
+  --color-chart-3: hsl(200 80% 55%);
+  --color-chart-4: hsl(2 76% 60%);
+  --color-chart-5: hsl(45 92% 62%);
+
+  --radius: 0.5rem;
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.dark {
+  /* Intentionally empty: the Ink Console palette is declared once in @theme above
+     and is already dark-native. Keeping the `.dark` class lets `dark:` variants
+     and third-party components opt in without redefining tokens. */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

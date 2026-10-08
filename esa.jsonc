@@ -1,0 +1,8 @@
+{
+  "name": "vite-react-template",
+  "entry": "./functions/index.ts",
+  "assets": {
+    "directory": "./dist",
+    "notFoundStrategy": "singlePageApplication"
+  }
+}

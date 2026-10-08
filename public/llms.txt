@@ -1,0 +1,23 @@
+# LLM Gateway
+
+> Edge-native multi-provider LLM gateway on Aliyun ESA Functions & Pages. One edge endpoint unifies OpenAI- and Anthropic-compatible upstreams with priority routing, automatic failover, circuit breaking, prompt-injection defense, and unified key management.
+
+## Gateway data plane
+
+- [OpenAI Chat Completions](https://help.aliyun.com/zh/edge-security-acceleration/esa/user-guide/what-is-functions-and-pages/): `POST /api/v1/chat/completions`
+- [Anthropic Messages](https://help.aliyun.com/zh/edge-security-acceleration/esa/user-guide/what-is-functions-and-pages/): `POST /api/v1/messages`
+- Model list: `GET /api/v1/models`
+
+## Console control plane (session-token protected)
+
+- Auth: `POST /api/admin/login`, `GET /api/admin/me`, `POST /api/admin/change-password`
+- Providers: `GET/POST /api/admin/providers`, `PUT/DELETE /api/admin/providers/:id`
+- Keys: `GET/POST /api/admin/keys`, `PUT/DELETE /api/admin/keys/:id`, `POST /api/admin/keys/:id/rotate`
+- Policies: `GET/PUT /api/admin/policies`
+- Logs: `GET/DELETE /api/admin/logs`
+- Ops: `GET /api/admin/stats`, `POST /api/admin/reset-health`, `POST /api/admin/test`
+
+## Docs
+
+- [ESA Functions & Pages guide](https://help.aliyun.com/zh/edge-security-acceleration/esa/user-guide/what-is-functions-and-pages/)
+- Source repository README: `/README.md`

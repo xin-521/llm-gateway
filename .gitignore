@@ -1,0 +1,60 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# tsc 输出（防止误跑 tsc 在模板源码上生成产物，污染镜像 / 触发 vite ESM 加载错误）
+*.tsbuildinfo
+src/**/*.js
+src/**/*.d.ts
+functions/**/*.js
+functions/**/*.d.ts
+vite.config.js
+vite.config.d.ts
+vitest.config.js
+vitest.config.d.ts
+# Vite 环境声明（合法的，必须保留）
+!src/vite-env.d.ts
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript 编译产物（src/functions 下 .ts/.tsx 是真源码，.d.ts/.js 是输出）
+src/**/*.d.ts
+src/**/*.js
+!src/vite-env.d.ts
+functions/**/*.d.ts
+functions/**/*.js
+vite.config.d.ts
+vite.config.js
+vitest.config.d.ts
+vitest.config.js
+
+# esa dev generated runtime (keep .dev/mock/ - it is source)
+.dev/.kv
+.dev/devConfig.js
+.dev/devEntry-*.js
+.dev/index-*.js
+
+# task scratch / preview artifacts
+temp/
+
+# worklog is kept untracked by default
+WORKLOG.md
