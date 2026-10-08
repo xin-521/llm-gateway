@@ -52,6 +52,7 @@ vitest.config.js
 .dev/devConfig.js
 .dev/devEntry-*.js
 .dev/index-*.js
+.dev/pub.js
 
 # task scratch / preview artifacts
 temp/
