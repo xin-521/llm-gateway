@@ -16,6 +16,7 @@ import {
 import { pbkdf2Hex, randomHex, signToken, verifyToken, safeEqual } from "./crypto";
 import { newGatewayKey, authGatewayKey, handleModels } from "./gateway";
 import type { ChatOptions } from "./gateway";
+import { modelsUrl, upstreamHeaders } from "./protocols";
 import type { AdminUser, GatewayKey, Policies, Provider } from "./types";
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -228,7 +229,85 @@ export async function handleProviders(request: Request, subPath: string, method:
   return err("Not found", 404);
 }
 
-/* ---------------- keys ---------------- */
+/* ---------------- provider model discovery ---------------- */
+
+/**
+ * Ask the upstream for its model catalogue (GET {base}/v1/models). Used by the
+ * console to pre-fill the model list; the caller falls back to manual entry
+ * whenever this fails.
+ */
+async function fetchProviderModels(
+  baseUrl: string,
+  apiKey: string,
+  protocol: "openai" | "anthropic"
+): Promise<string[]> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(modelsUrl(baseUrl), {
+      headers: upstreamHeaders(apiKey, protocol),
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`upstream HTTP ${res.status}`);
+    const json = (await res.json().catch(() => null)) as unknown;
+    const arr = Array.isArray(json)
+      ? json
+      : Array.isArray((json as { data?: unknown })?.data)
+        ? ((json as { data: unknown[] }).data)
+        : [];
+    const models = arr
+      .map((m) => {
+        if (typeof m === "string") return m;
+        if (m && typeof m === "object") {
+          const o = m as Record<string, unknown>;
+          return String(o.id ?? o.name ?? o.model ?? "");
+        }
+        return "";
+      })
+      .filter(Boolean);
+    // de-duplicate, keep stable order, cap the payload
+    return Array.from(new Set(models)).slice(0, 500);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function handleDiscoverModels(request: Request): Promise<Response> {
+  const auth = await requireAdmin(request);
+  if (auth.error) return auth.error;
+  const b = await request.json().catch(() => ({}));
+  const protocol = b.protocol === "anthropic" ? "anthropic" : "openai";
+  let baseUrl = String(b.baseUrl ?? "").trim();
+  let apiKey = String(b.apiKey ?? "").trim();
+  // Editing an existing provider: the console sends back a masked/empty key.
+  if ((!apiKey || apiKey.includes("•")) && typeof b.providerId === "string") {
+    const list = await getProviders(true);
+    const p = list.find((x) => x.id === b.providerId);
+    if (p) {
+      baseUrl = baseUrl || p.baseUrl;
+      apiKey = p.apiKey;
+    }
+  }
+  if (!baseUrl) return err("baseUrl is required");
+
+  try {
+    const models = await fetchProviderModels(baseUrl, apiKey, protocol);
+    if (!models.length) {
+      return json({ models: [], note: "上游未返回模型列表" });
+    }
+    return json({ models });
+  } catch (e) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const note =
+      e instanceof Error && e.name === "AbortError"
+        ? "请求上游超时"
+        : /^upstream HTTP \d+$/.test(raw)
+          ? raw
+          : "无法连接上游（网络或 DNS 错误）";
+    // Reachable but undiscoverable: signal the UI to fall back to manual input.
+    return json({ models: [], note });
+  }
+}
 
 export function maskKey(k: GatewayKey): GatewayKey {
   return { ...k, key: `${k.key.slice(0, 14)}••••${k.key.slice(-4)}` };

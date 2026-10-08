@@ -609,6 +609,14 @@ export function upstreamUrl(baseUrl: string, protocol: Protocol, stream: boolean
   return base + endpoint;
 }
 
+/** Model-listing endpoint. Both OpenAI and Anthropic expose GET /v1/models. */
+export function modelsUrl(baseUrl: string): string {
+  let base = baseUrl.trim().replace(/\/+$/, "");
+  if (/\/models$/i.test(base)) return base;
+  if (/\/v1$/i.test(base)) base = base.slice(0, -3);
+  return `${base}/v1/models`;
+}
+
 export function upstreamHeaders(
   apiKey: string,
   protocol: Protocol,

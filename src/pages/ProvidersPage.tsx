@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Zap, GripVertical } from "lucide-react";
+import { Plus, Pencil, Trash2, Zap, GripVertical, Sparkles, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import type { Provider } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,58 @@ export default function ProvidersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [detected, setDetected] = useState<string[] | null>(null);
+  const [detectNote, setDetectNote] = useState<string | null>(null);
+  const lastDetectSig = useRef("");
+
+  const detect = useMutation({
+    mutationFn: () =>
+      api.post<{ models: string[]; note?: string }>("/providers/discover-models", {
+        baseUrl: form.baseUrl,
+        apiKey: form.apiKey,
+        protocol: form.protocol,
+        providerId: form.id,
+      }),
+    onSuccess: (r) => {
+      if (r.models.length) {
+        setDetected(r.models);
+        setDetectNote(null);
+        setForm((f) => ({ ...f, models: r.models.join(", ") }));
+        toast.success(`已自动识别 ${r.models.length} 个模型`);
+      } else {
+        setDetected(null);
+        setDetectNote(r.note ?? "上游未返回模型列表");
+        toast.warning("未自动识别到模型，已回退为手动填写");
+      }
+    },
+    onError: (e: Error) => {
+      setDetected(null);
+      setDetectNote(e.message);
+      toast.warning("自动识别失败，已回退为手动填写");
+    },
+  });
+
+  const selectedModels = form.models
+    .split(/[,，\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const toggleModel = (m: string) => {
+    const set = new Set(selectedModels);
+    if (set.has(m)) set.delete(m);
+    else set.add(m);
+    setForm({ ...form, models: Array.from(set).join(", ") });
+  };
+
+  /** Auto-probe the provider once per distinct baseUrl/key/protocol. */
+  const maybeDetect = (force = false) => {
+    if (form.mock || !form.baseUrl) return;
+    if (!form.apiKey && !form.id) return;
+    const sig = `${form.id ?? ""}|${form.protocol}|${form.baseUrl}|${form.apiKey ? "k" : ""}`;
+    if (!force && (sig === lastDetectSig.current || detect.isPending)) return;
+    lastDetectSig.current = sig;
+    detect.mutate();
+  };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["providers"] });
@@ -131,6 +183,9 @@ export default function ProvidersPage() {
   });
 
   const openEdit = (p?: Provider) => {
+    setDetected(null);
+    setDetectNote(null);
+    lastDetectSig.current = "";
     if (p) {
       setForm({
         id: p.id,
@@ -319,6 +374,7 @@ export default function ProvidersPage() {
                 value={form.baseUrl}
                 disabled={form.mock}
                 onChange={(e) => setForm({ ...form, baseUrl: e.target.value })}
+                onBlur={() => maybeDetect()}
                 className="font-mono text-sm"
                 placeholder="https://api.openai.com/v1"
               />
@@ -331,6 +387,7 @@ export default function ProvidersPage() {
                 value={form.apiKey}
                 disabled={form.mock}
                 onChange={(e) => setForm({ ...form, apiKey: e.target.value })}
+                onBlur={() => maybeDetect()}
                 className="font-mono text-sm"
                 placeholder="sk-…"
               />
@@ -339,7 +396,22 @@ export default function ProvidersPage() {
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p-models">支持的模型（逗号分隔）</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="p-models">支持的模型（逗号分隔）</Label>
+                <button
+                  type="button"
+                  onClick={() => maybeDetect(true)}
+                  disabled={detect.isPending || form.mock || !form.baseUrl}
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline disabled:opacity-50"
+                >
+                  {detect.isPending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="size-3.5" />
+                  )}
+                  {detect.isPending ? "识别中…" : "自动识别"}
+                </button>
+              </div>
               <Input
                 id="p-models"
                 value={form.models}
@@ -347,6 +419,32 @@ export default function ProvidersPage() {
                 className="font-mono text-sm"
                 placeholder="gpt-4o, claude-sonnet-4-5"
               />
+              {detected && detected.length > 0 && (
+                <div className="flex flex-wrap gap-1 pt-1 max-h-32 overflow-y-auto">
+                  {detected.map((m) => {
+                    const on = selectedModels.includes(m);
+                    return (
+                      <button
+                        type="button"
+                        key={m}
+                        onClick={() => toggleModel(m)}
+                        className={`rounded-full border px-2 py-0.5 font-mono text-[10px] transition-colors ${
+                          on
+                            ? "border-primary/50 bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {detectNote && !detected && (
+                <p className="text-[11px] text-warning">
+                  无法自动识别（{detectNote}），请手动填写。
+                </p>
+              )}
             </div>
             <label className="flex items-center gap-2.5 text-sm cursor-pointer pt-1">
               <Switch checked={form.mock} onCheckedChange={(v) => setForm({ ...form, mock: !!v })} />

@@ -9,7 +9,7 @@
 - 控制面（会话令牌保护，仅控制台使用）
   - `POST /api/admin/login`、`GET /api/admin/me`、`POST /api/admin/change-password`
   - `GET /api/admin/status`、`POST /api/admin/setup`（首次初始化管理员）
-  - `CRUD /api/admin/providers[/:id]`
+  - `CRUD /api/admin/providers[/:id]`、`POST /api/admin/providers/discover-models`（探测上游 `GET /v1/models` 自动识别模型，失败回退手动填写）
   - `CRUD /api/admin/keys[/:id]`、`POST /api/admin/keys/:id/rotate`
   - `GET/PUT /api/admin/policies`、`GET/DELETE /api/admin/logs`
   - `GET /api/admin/stats`、`POST /api/admin/reset-health`、`POST /api/admin/test`

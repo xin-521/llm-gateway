@@ -1,5 +1,6 @@
 import {
   handleChangePassword,
+  handleDiscoverModels,
   handleKeys,
   handleLogs,
   handleLogin,
@@ -28,6 +29,7 @@ import { handleChat } from "./gateway";
  *   POST /api/admin/login | GET /api/admin/me | POST /api/admin/change-password
  *   GET  /api/admin/status | POST /api/admin/setup   (first-run bootstrap)
  *   CRUD /api/admin/providers[/id]
+ *   POST /api/admin/providers/discover-models  (probe upstream GET /v1/models)
  *   CRUD /api/admin/keys[/id] | POST /api/admin/keys/:id/rotate
  *   GET/PUT /api/admin/policies
  *   GET/DELETE /api/admin/logs
@@ -96,6 +98,9 @@ export default {
     }
     if (path === "/admin/change-password" && method === "POST") {
       return handleChangePassword(request);
+    }
+    if (path === "/admin/providers/discover-models" && method === "POST") {
+      return handleDiscoverModels(request);
     }
 
     let m: RegExpMatchArray | null;

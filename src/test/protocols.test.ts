@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { upstreamUrl } from "../../functions/protocols";
+import { modelsUrl, upstreamUrl } from "../../functions/protocols";
 
 describe("upstreamUrl", () => {
   it("appends the OpenAI endpoint when base has no /v1", () => {
@@ -27,5 +27,17 @@ describe("upstreamUrl", () => {
     expect(upstreamUrl("https://host/v1/chat/completions", "openai", false)).toBe(
       "https://host/v1/chat/completions"
     );
+  });
+});
+
+describe("modelsUrl", () => {
+  it("builds /v1/models without duplicating /v1", () => {
+    expect(modelsUrl("https://api.openai.com")).toBe("https://api.openai.com/v1/models");
+    expect(modelsUrl("https://api.openai.com/v1")).toBe("https://api.openai.com/v1/models");
+    expect(modelsUrl("https://host/api/v1/")).toBe("https://host/api/v1/models");
+  });
+
+  it("accepts a fully-qualified models endpoint", () => {
+    expect(modelsUrl("https://host/v1/models")).toBe("https://host/v1/models");
   });
 });
