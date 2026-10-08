@@ -599,9 +599,14 @@ export function convertStream(
 /* ------------------------------------------------------------------ */
 
 export function upstreamUrl(baseUrl: string, protocol: Protocol, stream: boolean): string {
-  const base = baseUrl.replace(/\/+$/, "");
-  if (protocol === "anthropic") return `${base}/v1/messages`;
-  return `${base}/v1/chat/completions`;
+  let base = baseUrl.trim().replace(/\/+$/, "");
+  const endpoint = protocol === "anthropic" ? "/v1/messages" : "/v1/chat/completions";
+  // Already a fully-qualified endpoint (e.g. .../v1/chat/completions).
+  if (base.endsWith("/chat/completions") || base.endsWith("/messages")) return base;
+  // Most OpenAI/Anthropic SDKs put the /v1 segment inside baseUrl; do not
+  // duplicate it (e.g. https://api.openai.com/v1 -> .../v1/chat/completions).
+  if (/\/v1$/i.test(base)) base = base.slice(0, -3);
+  return base + endpoint;
 }
 
 export function upstreamHeaders(

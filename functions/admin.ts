@@ -15,6 +15,7 @@ import {
 } from "./store";
 import { pbkdf2Hex, randomHex, signToken, verifyToken, safeEqual } from "./crypto";
 import { newGatewayKey, authGatewayKey, handleModels } from "./gateway";
+import type { ChatOptions } from "./gateway";
 import type { AdminUser, GatewayKey, Policies, Provider } from "./types";
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -185,7 +186,7 @@ export async function handleProviders(request: Request, subPath: string, method:
 
   if (method === "POST" && !subPath) {
     const b = await request.json().catch(() => ({}));
-    const list = await getProviders();
+    const list = await getProviders(true);
     const p: Provider = {
       id: `prov_${Date.now()}_${randomHex(3)}`,
       name: String(b.name ?? "Untitled"),
@@ -208,7 +209,7 @@ export async function handleProviders(request: Request, subPath: string, method:
   }
 
   if (method === "PUT" && subPath) {
-    const list = await getProviders();
+    const list = await getProviders(true);
     const idx = list.findIndex((p) => p.id === subPath);
     if (idx === -1) return err("Provider not found", 404);
     const b = await request.json().catch(() => ({}));
@@ -218,7 +219,7 @@ export async function handleProviders(request: Request, subPath: string, method:
   }
 
   if (method === "DELETE" && subPath) {
-    const list = await getProviders();
+    const list = await getProviders(true);
     const next = list.filter((p) => p.id !== subPath);
     await saveProviders(next);
     return json({ ok: true });
@@ -243,7 +244,7 @@ export async function handleKeys(request: Request, subPath: string, method: stri
 
   if (method === "POST" && !subPath) {
     const b = await request.json().catch(() => ({}));
-    const list = await getKeys();
+    const list = await getKeys(true);
     const k: GatewayKey = {
       id: `key_${Date.now()}_${randomHex(3)}`,
       name: String(b.name ?? "Untitled key"),
@@ -261,7 +262,7 @@ export async function handleKeys(request: Request, subPath: string, method: stri
   }
 
   if (method === "PUT" && subPath) {
-    const list = await getKeys();
+    const list = await getKeys(true);
     const idx = list.findIndex((k) => k.id === subPath);
     if (idx === -1) return err("Key not found", 404);
     const b = await request.json().catch(() => ({}));
@@ -276,7 +277,7 @@ export async function handleKeys(request: Request, subPath: string, method: stri
   }
 
   if (method === "DELETE" && subPath) {
-    const list = await getKeys();
+    const list = await getKeys(true);
     await saveKeys(list.filter((k) => k.id !== subPath));
     return json({ ok: true });
   }
@@ -287,7 +288,7 @@ export async function handleKeys(request: Request, subPath: string, method: stri
 export async function handleRotateKey(request: Request, keyId: string): Promise<Response> {
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;
-  const list = await getKeys();
+  const list = await getKeys(true);
   const idx = list.findIndex((k) => k.id === keyId);
   if (idx === -1) return err("Key not found", 404);
   list[idx].key = newGatewayKey();
@@ -303,7 +304,7 @@ export async function handlePolicies(request: Request, method: string): Promise<
   if (method === "GET") return json(await getPolicies());
   if (method === "PUT") {
     const b = (await request.json().catch(() => ({}))) as Partial<Policies>;
-    const current = await getPolicies();
+    const current = await getPolicies(true);
     const next: Policies = {
       failover: { ...current.failover, ...(b.failover ?? {}) },
       injection: { ...current.injection, ...(b.injection ?? {}) },
@@ -415,12 +416,16 @@ export async function handleTest(request: Request): Promise<Response> {
   const auth = await requireAdmin(request);
   if (auth.error) return auth.error;
   const b = await request.json().catch(() => ({}));
+  // Diagnostic call: reuse the resolved key and skip health persistence so the
+  // whole request stays within the 8 KV-ops budget.
+  const opts: ChatOptions = { skipHealthWrite: true };
   let gatewayApiKey = String(b.gatewayKey ?? "");
   if (!gatewayApiKey.startsWith("sk-gw-") && typeof b.keyId === "string") {
-    const keys = await getKeys();
+    const keys = await getKeys(true);
     const found = keys.find((k) => k.id === b.keyId && k.enabled);
     if (!found) return err("Key not found or disabled", 404);
     gatewayApiKey = found.key;
+    opts.key = found;
   }
   const model = String(b.model ?? "");
   const protocol = b.protocol === "anthropic" ? "anthropic" : "openai";
@@ -454,7 +459,7 @@ export async function handleTest(request: Request): Promise<Response> {
   }
   // route through the same handler (no network hop)
   const { handleChat } = await import("./gateway");
-  const res = await handleChat(inner, protocol);
+  const res = await handleChat(inner, protocol, opts);
   const text = await res.text();
   return json({ status: res.status, body: safeJson(text) }, res.status);
 }

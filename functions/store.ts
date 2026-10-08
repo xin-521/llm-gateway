@@ -82,8 +82,8 @@ export const DEFAULT_POLICIES: Policies = {
   loggingEnabled: true,
 };
 
-export async function getProviders(): Promise<Provider[]> {
-  const list = await readJson<Provider[]>("providers", []);
+export async function getProviders(fresh = false): Promise<Provider[]> {
+  const list = await readJson<Provider[]>("providers", [], fresh);
   return Array.isArray(list) ? list : [];
 }
 
@@ -91,8 +91,8 @@ export async function saveProviders(list: Provider[]): Promise<void> {
   await writeJson("providers", list);
 }
 
-export async function getKeys(): Promise<GatewayKey[]> {
-  const list = await readJson<GatewayKey[]>("keys", []);
+export async function getKeys(fresh = false): Promise<GatewayKey[]> {
+  const list = await readJson<GatewayKey[]>("keys", [], fresh);
   return Array.isArray(list) ? list : [];
 }
 
@@ -100,8 +100,8 @@ export async function saveKeys(list: GatewayKey[]): Promise<void> {
   await writeJson("keys", list);
 }
 
-export async function getPolicies(): Promise<Policies> {
-  const p = await readJson<Partial<Policies>>("policies", DEFAULT_POLICIES);
+export async function getPolicies(fresh = false): Promise<Policies> {
+  const p = await readJson<Partial<Policies>>("policies", DEFAULT_POLICIES, fresh);
   return {
     failover: { ...DEFAULT_POLICIES.failover, ...(p.failover || {}) },
     injection: { ...DEFAULT_POLICIES.injection, ...(p.injection || {}) },
@@ -129,8 +129,8 @@ export async function getSecret(): Promise<string> {
   return (await readRaw("secret")) || "dev-only-secret-change-me";
 }
 
-export async function getHealth(): Promise<HealthMap> {
-  const h = await readJson<HealthMap>("health", {});
+export async function getHealth(fresh = false): Promise<HealthMap> {
+  const h = await readJson<HealthMap>("health", {}, fresh);
   return h && typeof h === "object" && !Array.isArray(h) ? h : {};
 }
 
@@ -140,8 +140,8 @@ export async function saveHealth(h: HealthMap): Promise<void> {
 
 const MAX_LOGS = 300;
 
-export async function getLogs(): Promise<LogEntry[]> {
-  const list = await readJson<LogEntry[]>("logs", []);
+export async function getLogs(fresh = false): Promise<LogEntry[]> {
+  const list = await readJson<LogEntry[]>("logs", [], fresh);
   return Array.isArray(list) ? list : [];
 }
 

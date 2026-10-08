@@ -6,7 +6,6 @@ import {
   getPolicies,
   getProviders,
   saveHealth,
-  saveKeys,
 } from "./store";
 import {
   anthropicResponseToOpenai,
@@ -57,8 +56,16 @@ export function newGatewayKey(): string {
 }
 
 /**
+ * Isolate-local rate-limit bookkeeping. Persisting every request to the keys
+ * array costs one KV write on the hot path and, worse, lets a stale isolate
+ * clobber keys created elsewhere (it rewrites the whole array). In-memory
+ * tracking keeps the gateway within the 8 KV-ops-per-request budget.
+ */
+const rateState = new Map<string, number>();
+
+/**
  * Authenticate an incoming gateway request by its API key.
- * KV budget: 1 get (keys) + optional 1 put (rate-limit bookkeeping).
+ * KV budget: 1 get (keys).
  */
 export async function authGatewayKey(
   request: Request
@@ -91,17 +98,15 @@ export async function authGatewayKey(
   }
   if (match.rateLimitPerMin > 0) {
     const now = Date.now();
-    if (
-      match.lastUsedAt &&
-      now - match.lastUsedAt < 60_000 / Math.max(1, match.rateLimitPerMin)
-    ) {
+    const last = rateState.get(match.id) ?? 0;
+    if (last && now - last < 60_000 / Math.max(1, match.rateLimitPerMin)) {
       return {
         key: null,
         error: jsonError("openai", 429, `Rate limited to ${match.rateLimitPerMin} req/min for this key.`),
       };
     }
+    rateState.set(match.id, now);
     match.lastUsedAt = now;
-    await saveKeys(keys);
   }
   return { key: match };
 }
@@ -194,13 +199,26 @@ interface LogInput {
 }
 
 /**
+ * Optional caller context. The console Playground routes through handleChat
+ * internally, which would otherwise re-authenticate and persist health on top
+ * of its own KV usage and blow the 8 ops/request budget.
+ */
+export interface ChatOptions {
+  /** Pre-authenticated key (skips the auth lookup and its KV get). */
+  key?: GatewayKey;
+  /** Read health but do not persist it (diagnostic calls). */
+  skipHealthWrite?: boolean;
+}
+
+/**
  * Failover engine with prompt-injection guard.
- * Total KV calls (worst case): keys get+put (2) + providers (1) + policies (1)
- * + health get+put (2) + logs get+put (2) = 8.
+ * Total KV calls (worst case, data plane): keys (1) + providers (1)
+ * + policies (1) + health get+put (2) + logs get+put (2) = 7.
  */
 export async function handleChat(
   request: Request,
-  clientProtocol: Protocol
+  clientProtocol: Protocol,
+  opts: ChatOptions = {}
 ): Promise<Response> {
   const started = Date.now();
   let body: Record<string, unknown>;
@@ -210,7 +228,7 @@ export async function handleChat(
     return jsonError(clientProtocol, 400, "Invalid JSON body.");
   }
 
-  const auth = await authGatewayKey(request);
+  const auth = opts.key ? { key: opts.key } : await authGatewayKey(request);
   if (!auth.key) return auth.error!;
   const key = auth.key;
 
@@ -250,6 +268,9 @@ export async function handleChat(
 
   /* ---------------- failover loop ---------------- */
   const health = await getHealth();
+  const persistHealth = async () => {
+    if (!opts.skipHealthWrite) await saveHealth(health);
+  };
   const candidates = pickCandidates(providers, body, key);
   if (!candidates.length) {
     return jsonError(
@@ -292,7 +313,7 @@ export async function handleChat(
       attempts.push({ providerId: provider.id, providerName: provider.name, status: 200, ms: Date.now() - t0 });
       markSuccess(health, provider.id, Date.now() - t0);
       const final = await finalizeResponse(res, provider, clientProtocol, body);
-      await saveHealth(health);
+      await persistHealth();
       await writeLog({
         started, key, body, clientProtocol, status: 200, attempts,
         servedBy: provider.id, servedByName: provider.name,
@@ -316,7 +337,7 @@ export async function handleChat(
       continue;
     }
     // non-retryable (e.g. 401/400): surface upstream error to client
-    await saveHealth(health);
+    await persistHealth();
     await writeLog({
       started, key, body, clientProtocol, status: res.status, attempts,
       servedBy: provider.id, servedByName: provider.name,
@@ -328,7 +349,7 @@ export async function handleChat(
     });
   }
 
-  await saveHealth(health);
+  await persistHealth();
   await writeLog({
     started, key, body, clientProtocol, status: 502, attempts,
     servedBy: null, servedByName: null,
