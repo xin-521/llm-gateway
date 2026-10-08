@@ -39,7 +39,7 @@ async function requireAdmin(request: Request): Promise<{ user?: AdminUser; error
   const secret = await getSecret();
   const payload = await verifyToken(secret, token);
   if (!payload) return { error: err("Invalid or expired session", 401) };
-  const users = await getUsers();
+  const users = await getUsers(true);
   const user = users.find((u) => u.username === payload.sub);
   if (!user) return { error: err("User not found", 401) };
   return { user };
@@ -54,7 +54,7 @@ export async function handleLogin(request: Request): Promise<Response> {
   }
   const username = String(body.username ?? "").trim();
   const password = String(body.password ?? "");
-  const users = await getUsers();
+  const users = await getUsers(true);
   const user = users.find((u) => u.username === username);
   if (!user || !password) return err("Invalid username or password", 401);
   const hash = await pbkdf2Hex(password, user.salt);
@@ -73,7 +73,7 @@ export async function handleLogin(request: Request): Promise<Response> {
  * while the KV store has no users yet.
  */
 export async function handleStatus(): Promise<Response> {
-  const users = await getUsers();
+  const users = await getUsers(true);
   return json({ initialized: users.length > 0 });
 }
 
@@ -83,7 +83,7 @@ export async function handleStatus(): Promise<Response> {
  * directly in the console.
  */
 export async function handleSetup(request: Request): Promise<Response> {
-  const users = await getUsers();
+  const users = await getUsers(true);
   if (users.length > 0) return err("Already initialized", 409);
   let body: { username?: string; password?: string; name?: string };
   try {
@@ -130,7 +130,7 @@ export async function handleChangePassword(request: Request): Promise<Response> 
   } catch {
     return err("Invalid JSON");
   }
-  const users = await getUsers();
+  const users = await getUsers(true);
   const user = users.find((u) => u.username === auth.user!.username);
   if (!user) return err("User not found", 404);
   const oldHash = await pbkdf2Hex(String(body.oldPassword ?? ""), user.salt);

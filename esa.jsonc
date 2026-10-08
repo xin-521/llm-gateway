@@ -1,5 +1,7 @@
 {
-  "name": "vite-react-template",
+  // ESA CLI / 控制台项目配置：函数入口 + SPA 静态资源
+  "name": "llm-gateway",
+  "description": "大模型网关 — OpenAI / Anthropic 统一接入、故障转移与注入防护",
   "entry": "./functions/index.ts",
   "assets": {
     "directory": "./dist",

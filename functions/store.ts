@@ -27,16 +27,18 @@ function kv(): EdgeKV {
 const CACHE_TTL_MS = 15_000;
 const readCache = new Map<string, { value: string | null; at: number }>();
 
-async function readRaw(key: string): Promise<string | null> {
-  const hit = readCache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
+async function readRaw(key: string, fresh = false): Promise<string | null> {
+  if (!fresh) {
+    const hit = readCache.get(key);
+    if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
+  }
   const value = (await kv().get(key)) ?? null;
   readCache.set(key, { value, at: Date.now() });
   return value;
 }
 
-async function readJson<T>(key: string, fallback: T): Promise<T> {
-  const raw = await readRaw(key);
+async function readJson<T>(key: string, fallback: T, fresh = false): Promise<T> {
+  const raw = await readRaw(key, fresh);
   if (!raw) return fallback;
   try {
     const parsed = JSON.parse(raw);
@@ -114,8 +116,8 @@ export async function savePolicies(p: Policies): Promise<void> {
   await writeJson("policies", p);
 }
 
-export async function getUsers(): Promise<AdminUser[]> {
-  const list = await readJson<AdminUser[]>("users", []);
+export async function getUsers(fresh = false): Promise<AdminUser[]> {
+  const list = await readJson<AdminUser[]>("users", [], fresh);
   return Array.isArray(list) ? list : [];
 }
 
