@@ -13,6 +13,7 @@ dist-ssr
 *.local
 
 # tsc 输出（防止误跑 tsc 在模板源码上生成产物，污染镜像 / 触发 vite ESM 加载错误）
+# src/functions 下 .ts/.tsx 是真源码，.d.ts/.js 是输出
 *.tsbuildinfo
 src/**/*.js
 src/**/*.d.ts
@@ -25,6 +26,22 @@ vitest.config.d.ts
 # Vite 环境声明（合法的，必须保留）
 !src/vite-env.d.ts
 
+# esa dev generated runtime (keep .dev/mock/ - it is source)
+.dev/.kv
+.dev/devConfig.js
+.dev/devEntry-*.js
+.dev/index-*.js
+.dev/pub.js
+
+# agent generated snapshot
+.merkle-snapshot.json
+
+# task scratch / preview artifacts
+temp/
+
+# worklog is kept untracked by default
+WORKLOG.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -35,27 +52,3 @@ vitest.config.d.ts
 *.njsproj
 *.sln
 *.sw?
-
-# TypeScript 编译产物（src/functions 下 .ts/.tsx 是真源码，.d.ts/.js 是输出）
-src/**/*.d.ts
-src/**/*.js
-!src/vite-env.d.ts
-functions/**/*.d.ts
-functions/**/*.js
-vite.config.d.ts
-vite.config.js
-vitest.config.d.ts
-vitest.config.js
-
-# esa dev generated runtime (keep .dev/mock/ - it is source)
-.dev/.kv
-.dev/devConfig.js
-.dev/devEntry-*.js
-.dev/index-*.js
-.dev/pub.js
-
-# task scratch / preview artifacts
-temp/
-
-# worklog is kept untracked by default
-WORKLOG.md
