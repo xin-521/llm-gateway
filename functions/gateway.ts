@@ -253,7 +253,9 @@ export async function handleChat(
         return finishBlocked(started, key, body, clientProtocol, injectionHits, policies);
       }
     } else {
-      let msgs = Array.isArray(body.messages) ? (body.messages as never[]) : [];
+      let msgs = (Array.isArray(body.messages) ? body.messages : []) as Parameters<
+        typeof applyInjectionGuard
+      >[0];
       if (inj.systemTemplateEnabled && inj.systemTemplate.trim()) {
         msgs = injectSystemTemplate(msgs, inj.systemTemplate);
       }

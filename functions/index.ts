@@ -16,12 +16,14 @@ import {
   handleTest,
 } from "./admin";
 import { handleChat } from "./gateway";
+import { handleResponses } from "./responses";
 
 /**
  * LLM Gateway — ESA Edge Routine entry.
  *
  * Gateway data plane (OpenAI + Anthropic compatible):
  *   POST /api/v1/chat/completions   OpenAI Chat Completions
+ *   POST /api/v1/responses          OpenAI Responses (compat shim)
  *   POST /api/v1/messages           Anthropic Messages
  *   GET  /api/v1/models             model list
  *
@@ -78,6 +80,9 @@ export default {
     }
     if (path === "/v1/messages" && method === "POST") {
       return handleChat(request, "anthropic");
+    }
+    if (path === "/v1/responses" && method === "POST") {
+      return handleResponses(request);
     }
     if (path === "/v1/models" && method === "GET") {
       return handleModels(request);

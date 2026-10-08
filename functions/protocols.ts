@@ -342,55 +342,63 @@ export function convertStream(
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const { done, value } = await reader.read();
-      if (done) {
-        if (from === "openai" && to === "anthropic") {
-          // close any open block + final events
-          let tail = "";
-          if (textBlockOpen) tail += sseFrame("content_block_stop", "{}");
-          for (const tc of toolCalls) {
-            let input: unknown = {};
-            try {
-              input = JSON.parse(tc.args || "{}");
-            } catch {
-              input = { raw: tc.args };
+      // An upstream frame may map to no client event (e.g. a usage-only
+      // chunk). The runtime does not call `pull` again after an empty
+      // enqueue, so loop until there is something to emit or the peer closes.
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (from === "openai" && to === "anthropic") {
+            // close any open block + final events
+            let tail = "";
+            if (textBlockOpen) tail += sseFrame("content_block_stop", "{}");
+            for (const tc of toolCalls) {
+              let input: unknown = {};
+              try {
+                input = JSON.parse(tc.args || "{}");
+              } catch {
+                input = { raw: tc.args };
+              }
+              tail += sseFrame(
+                "content_block_start",
+                JSON.stringify({ type: "content_block_start", index: blockIndex++, content_block: { type: "tool_use", id: tc.id, name: tc.name, input } })
+              );
+              tail += sseFrame("content_block_stop", "{}");
             }
             tail += sseFrame(
-              "content_block_start",
-              JSON.stringify({ type: "content_block_start", index: blockIndex++, content_block: { type: "tool_use", id: tc.id, name: tc.name, input } })
+              "message_delta",
+              JSON.stringify({
+                type: "message_delta",
+                delta: { stop_reason: toolCalls.length ? "tool_use" : "end_turn", stop_sequence: null },
+                usage: { output_tokens: usage.completionTokens },
+              })
             );
-            tail += sseFrame("content_block_stop", "{}");
+            tail += sseFrame("message_stop", JSON.stringify({ type: "message_stop" }));
+            controller.enqueue(encoder.encode(tail));
           }
-          tail += sseFrame(
-            "message_delta",
-            JSON.stringify({
-              type: "message_delta",
-              delta: { stop_reason: toolCalls.length ? "tool_use" : "end_turn", stop_sequence: null },
-              usage: { output_tokens: usage.completionTokens },
-            })
-          );
-          tail += sseFrame("message_stop", JSON.stringify({ type: "message_stop" }));
-          controller.enqueue(encoder.encode(tail));
+          if (from === "openai" && to === "openai" && !openaiDoneSent) {
+            controller.enqueue(encoder.encode(sseFrame(null, "[DONE]")));
+          }
+          controller.close();
+          resolveUsage(usage);
+          return;
         }
-        if (from === "openai" && to === "openai" && !openaiDoneSent) {
-          controller.enqueue(encoder.encode(sseFrame(null, "[DONE]")));
-        }
-        controller.close();
-        resolveUsage(usage);
-        return;
-      }
 
-      buffer += decoder.decode(value, { stream: true });
-      let out = "";
-      let idx: number;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const frame = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        const parsed = frameData(frame);
-        if (!parsed) continue;
-        out += transformFrame(parsed.event, parsed.data);
+        buffer += decoder.decode(value, { stream: true });
+        let out = "";
+        let idx: number;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          const parsed = frameData(frame);
+          if (!parsed) continue;
+          out += transformFrame(parsed.event, parsed.data);
+        }
+        if (out) {
+          controller.enqueue(encoder.encode(out));
+          return;
+        }
       }
-      if (out) controller.enqueue(encoder.encode(out));
     },
     cancel(reason) {
       reader.cancel(reason);
