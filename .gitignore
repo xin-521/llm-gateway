@@ -52,3 +52,5 @@ WORKLOG.md
 *.njsproj
 *.sln
 *.sw?
+.vesa
+.dev
